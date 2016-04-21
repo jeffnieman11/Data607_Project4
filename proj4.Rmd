@@ -1,0 +1,68 @@
+---
+title: "Data 607 Project 4"
+author: "Jeff Nieman"
+date: "April 21, 2016"
+output: html_document
+---
+##No SQL Migration
+
+####1.  I began by loading the needed packages and calling the data in a .csv format from the github location where I stored it.
+
+```{r, warning=F, message=F}
+require(rmongodb)
+require(jsonlite)
+flights <- read.csv('https://raw.githubusercontent.com/jeffnieman11/Data607_Project4/master/airports.csv', header = T, na.strings="")
+
+```
+
+####2.  I then created the mongo connection and tested to see if it is working properly.  A value of "TRUE" confirmed it.
+```{r}
+mongo <- mongo.create()
+mongo
+mongo.is.connected(mongo)
+
+```
+
+####3.  I then tried several different approaches to migrate the data to mongodb.
+#####a.  My first approach involved first transforming the .csv file into a JSON file and then transforming it into a BSON file.  This enables me to insert the file into MongoDB.  I tested the success by using the command mongo.find.one.  I then tested the data by pulling one line (1396).
+```{r}
+x <- toJSON(flights)
+validate(x)  
+bson <- mongo.bson.from.JSON(x)
+mongo.insert(mongo, "test.flights.2", bson)
+t11 <- mongo.find.one(mongo, "test.flights.2")
+mongo.get.values(mongo, "test.flights.2", '1396')
+res <- mongo.find.one(mongo, "test.flights.2$'1396'")
+```
+
+```{r}
+validate(x)  
+bson <- mongo.bson.from.JSON(x)
+mongo.insert(mongo, "test.flights.2", bson)
+t11 <- mongo.find.one(mongo, "test.flights.2")
+mongo.get.values(mongo, "test.flights.2", '1396')
+res <- mongo.find.one(mongo, "test.flights.2$'1396'")
+```
+
+#####b.  My second approach involved converting the R dataframe directly to a bson format.   I performed the same test on the data as in approach a.  This approach does not return correct values for some of the fields such as name and faa so I reject this approach
+```{r}
+b <- mongo.bson.from.df(flights)
+mongo.insert(mongo, "test.flights.b", b)
+t4 <- mongo.find.one(mongo, "test.flights.b")
+mongo.get.values(mongo, "test.flights.b", '1396')
+
+```
+
+#####c.  Building on the first approach I then tried a third approach where I took the bson file that I placed in MongoDB and created a cursor which allowed me to create a list of the data.  I tested one of the values for the same line.  This does match the first approach's values.
+
+```{r}
+cursor <- mongo.find(mongo, "test.flights.2", bson)
+while(mongo.cursor.next(cursor)) {
+  value <- mongo.cursor.value(cursor)
+  list <- mongo.bson.to.list(value)
+  }
+print(list$'1396'$name)
+print(list$'1396'$faa)
+```
+
+####4. Conclusions:  Quite honestly I am more familiar with relational databases than I am with the noSQL database approach.  The pros of the relational database approach has to do with the structure - the columns and rows.  However the cons result the large space and process time complex and large relational databases take up.  The NoSQL approach solves this problem, but involves learning a new way to approach the queries.  Through this homework I learned how to put data into MongoDB but I found it challenging to make queries.  
