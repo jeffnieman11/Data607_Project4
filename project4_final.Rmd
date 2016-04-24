@@ -1,0 +1,68 @@
+---
+title: "Data 607 Project 4"
+author: "Jeff Nieman"
+date: "April 21, 2016"
+output: html_document
+---
+##No SQL Migration
+
+####1.  I began by loading the needed packages and calling the data in a .csv format from the github location where I stored it.  I also confirmed the dimensions of the file.
+
+```{r, warning=F, message=F}
+require(rmongodb)
+require(jsonlite)
+require(RCurl)
+airportsurl <- getURL("https://raw.githubusercontent.com/jeffnieman11/Data607_Project4/master/airports.csv")
+airports <- read.csv(text=airportsurl)
+dim(airports)
+head(airports)
+
+```
+
+####2.  I then created the mongo connection and tested to see if it is working properly.  A value of "TRUE" confirmed it.  
+```{r}
+mongonew <- mongo.create()
+mongonew
+mongo.is.connected(mongonew)
+
+```
+####3.  I then created names for a database and a collection where we add the records.  
+```{r}
+db <- "test.flights"
+mnew <- "test.flights.airports"
+
+mongo.get.database.collections(mongonew, db)
+
+```
+####4.  Following the advice on Andy Catlin's  to Mongo I used lappy to the split function and converted the csv file to JSON and then to bson which is the format needed for rmongodb.  A test of 3 rows confirms the approach.
+
+```{r}
+
+airports.1 <- lapply(split(airports, 1:nrow(airports)), function(x) mongo.bson.from.JSON(toJSON(x)))
+
+airports.1[1:3]
+```
+####5.  Using the mongo.insert.batch command I inserted the data from step 4 into my mongoDB and confirmed that there indeed were the same number of records as in the csv file.
+```{r}
+
+mongo.insert.batch(mongonew, mnew, airports.1)
+
+```
+
+####6.  I concluded by testing several queries.  I first checked the count and records of my local airport DTW, finding to no surprise one record.  Then I tested the altitude of 645 and again just pulled up the airport of DTW.  I then queried the count and a few records at sea level, followed by queries for >=2000 feet and <0.
+
+```{r}
+mongo.count(mongonew, mnew, query ='{"faa":"DTW"}')
+mongo.find.all(mongonew, mnew, query = '{"faa":"DTW"}')
+mongo.find.all(mongonew, mnew, query = '{"alt":645}')
+mongo.count(mongonew, mnew, query = '{"alt":0}')
+mongo.find.all(mongonew, mnew, query = '{"alt":0}', limit=5)
+mongo.count(mongonew, mnew, query = '{"alt":{"$gte":2000}}')
+mongo.find.one(mongonew, mnew, query = '{"alt":{"$gte":2000}}')
+mongo.count(mongonew, mnew, query = '{"alt":{"$lt":0}}')
+mongo.find.all(mongonew, mnew, query = '{"alt":{"$lt":0}}')
+
+```
+
+
+####Conclusions:  Quite honestly I am more familiar with relational databases than I am with the noSQL database approach.  The pros of the relational database approach has to do with the structure - the columns and rows.  However the cons result the large space and process time complex and large relational databases take up.  The NoSQL approach solves this problem, but involves learning a new way to approach the queries.  Through this homework I learned how to put data into MongoDB and after a little research found the queries to be useful as well.
